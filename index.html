@@ -2462,7 +2462,7 @@ function buildCard(p) {
   const isFullUrl = p.img && (p.img.startsWith('http://') || p.img.startsWith('https://'));
   const safeName = (p.brand + ' ' + p.model).replace(/'/g, '&#39;').replace(/"/g, '&quot;');
   const imgHtml = isFullUrl
-    ? `<img src="${p.img}" alt="${safeName}" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null;this.style.display='none';this.nextElementSibling.style.display='flex';">
+    ? `<img data-src="${p.img}" alt="${safeName}" loading="lazy" onerror="this.onerror=null;this.style.display='none';this.nextElementSibling.style.display='flex';">
        <div class="no-img" style="display:none">${safeName}</div>`
     : `<div class="no-img">${safeName}</div>`;
 
@@ -2491,6 +2491,7 @@ function showMore() {
   let html = '';
   batch.forEach(p => { html += buildCard(p); });
   grid.insertAdjacentHTML('beforeend', html);
+  grid.querySelectorAll('img[data-src]:not([src])').forEach(img => { img.referrerPolicy = 'no-referrer'; img.src = img.dataset.src; });
   shown += batch.length;
   const wrap = document.getElementById('loadMoreWrap');
   const countEl = document.getElementById('showCount');
