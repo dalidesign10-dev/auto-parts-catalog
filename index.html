@@ -2343,15 +2343,24 @@ function normalizeBrand(brand) {
     'hyundai/kia':'Hyundai','bbs/bmw':'BMW','opel/vauxhall':'Opel',
     'opel / vauxhall':'Opel','matra/simca':'Matra','talbot/matra':'Talbot',
     'carrozzeria ghia':'Other','carello':'Other','dmp':'Other','hva':'Other',
-    'mbk':'Other','ac':'Other','ronal':'Other'
+    'mbk':'Other','ac':'Other','ronal':'Other','ats':'Other','bbs':'Other',
+    'peugeot 104':'Peugeot','renault alliance':'Renault','range rover classic':'Land Rover',
+    'puma':'Other','rsm':'Other','rh alurad':'Other','motobecane':'Other',
+    'piaggio':'Other','terrot':'Other','rené gillet':'Other','hanomag':'Other'
   };
   const subKey = b.toLowerCase().trim();
   if (subBrands[subKey]) return subBrands[subKey];
+  // Filter long junk names (descriptions instead of brands)
+  if (b.length > 25 || /solex|bouton|crochet|complet|prise|grille/i.test(b)) return 'Other';
+  // Brands starting with known brand name -> extract it
+  const brandPrefix = b.match(/^(Porsche|Porshe|Mercedes|BMW|Audi|Renault|Peugeot|Fiat|Ford|Volkswagen|Citroën|Citroen)/i);
+  if (brandPrefix) {
+    const pKey = brandPrefix[1].toLowerCase().replace('porshe','porsche');
+    if (canonicalBrands[pKey]) return canonicalBrands[pKey];
+  }
   // Look up canonical name (case-insensitive)
   const key = b.toLowerCase().trim();
   if (canonicalBrands[key]) return canonicalBrands[key];
-  // Known motorcycle/non-car brands -> Other
-  const motoBrands = /^(cagiva|ducati|kawasaki|ktm|suzuki|honda|yamaha)$/i;
   // If not found, capitalize first letter of each word
   return b.replace(/\b\w/g, c => c.toUpperCase());
 }
