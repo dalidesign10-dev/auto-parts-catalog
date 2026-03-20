@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="referrer" content="no-referrer">
 <title>Headlight Repair Kits - Multi-Source Catalog</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -2458,7 +2459,8 @@ function buildCard(p) {
   }
 
   return `<div class="card">
-    <img src="${p.img}" alt="${p.brand} ${p.model}" loading="lazy">
+    <img src="${p.img}" alt="${p.brand} ${p.model}" loading="lazy" onerror="this.onerror=null;this.style.display='none';this.parentElement.querySelector('.img-placeholder').style.display='flex';">
+    <div class="img-placeholder" style="display:none;width:100%;height:200px;background:#f0f0f0;align-items:center;justify-content:center;flex-direction:column;color:#999;font-size:14px;"><svg width='48' height='48' fill='none' stroke='#ccc' stroke-width='2' viewBox='0 0 24 24'><rect x='3' y='3' width='18' height='18' rx='2'/><circle cx='8.5' cy='8.5' r='1.5'/><path d='M21 15l-5-5L5 21'/></svg><span style="margin-top:8px">${p.brand} ${p.model}</span></div>
     <div class="card-body">
       <h3>${title}</h3>
       ${moroccoBar}
