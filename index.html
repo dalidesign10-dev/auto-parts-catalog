@@ -2328,15 +2328,30 @@ function normalizeBrand(brand) {
     b = parts[parts.length - 1].trim();
   }
   // Remove any remaining URL artifacts
-  if (b.includes('s-l500') || b.includes('.jpg') || b.includes('.webp')) {
-    // Try to extract last word after any separator
+  if (b.includes('s-l500') || b.includes('s-l300') || b.includes('.jpg') || b.includes('.webp')) {
     const match = b.match(/[~\/]([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ\s\-]+)$/);
     if (match) b = match[1].trim();
     else return 'Unknown';
   }
+  // Filter out junk/non-car brands from gryp3d (stickers, boat parts, etc.)
+  const junkPatterns = /autocollant|gryp\s*3d|doming|bateau|mastercraft|fiche.*capot.*prise|int\s*365|bouton.*klaxon|copy\s*of|fcr37|condor|godier|grille.*rover.*bateau|crit.*air|noir.*blanc|classic\s*part/i;
+  if (junkPatterns.test(b)) return 'Other';
+  // Normalize sub-models to parent brand (e.g. "Audi 80" -> "Audi", "BMW Motorrad" -> "BMW")
+  const subBrands = {
+    'audi 80':'Audi','audi s2':'Audi','bmw motorrad':'BMW',
+    'fiat/citroën/peugeot':'Fiat','fiat/citroen/peugeot':'Fiat',
+    'hyundai/kia':'Hyundai','bbs/bmw':'BMW','opel/vauxhall':'Opel',
+    'opel / vauxhall':'Opel','matra/simca':'Matra','talbot/matra':'Talbot',
+    'carrozzeria ghia':'Other','carello':'Other','dmp':'Other','hva':'Other',
+    'mbk':'Other','ac':'Other','ronal':'Other'
+  };
+  const subKey = b.toLowerCase().trim();
+  if (subBrands[subKey]) return subBrands[subKey];
   // Look up canonical name (case-insensitive)
   const key = b.toLowerCase().trim();
   if (canonicalBrands[key]) return canonicalBrands[key];
+  // Known motorcycle/non-car brands -> Other
+  const motoBrands = /^(cagiva|ducati|kawasaki|ktm|suzuki|honda|yamaha)$/i;
   // If not found, capitalize first letter of each word
   return b.replace(/\b\w/g, c => c.toUpperCase());
 }
