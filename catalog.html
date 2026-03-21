@@ -33,6 +33,14 @@ h1 span { color: #fff; font-weight: 300; }
 .card-body .price { font-size: 20px; font-weight: 700; color: #e94560; }
 .card-body a { display: inline-block; margin-top: 8px; color: #1a73e8; text-decoration: none; font-size: 12px; }
 .card-body a:hover { text-decoration: underline; }
+.source-list { margin-top: 8px; border-top: 1px solid #eee; padding-top: 8px; }
+.source-item { display: flex; align-items: center; justify-content: space-between; padding: 4px 0; border-bottom: 1px dashed #f0f0f0; gap: 6px; }
+.source-item:last-child { border-bottom: none; }
+.source-item .s-price { font-weight: 700; color: #e94560; font-size: 14px; white-space: nowrap; }
+.source-item .s-price.best { color: #137333; font-size: 16px; }
+.source-item a { margin-top: 0; font-size: 11px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.source-count { display: inline-block; background: #e94560; color: #fff; border-radius: 50%; width: 22px; height: 22px; text-align: center; line-height: 22px; font-size: 11px; font-weight: 700; position: absolute; top: 8px; right: 8px; }
+.card { position: relative; }
 .hidden { display: none !important; }
 .card-body .tag.type-tag { background: #fff8e1; color: #f57f17; }
 .morocco-bar { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
@@ -54,7 +62,7 @@ h1 span { color: #fff; font-weight: 300; }
 </head>
 <body>
 <h1>Kit Reparacion Faro <span>- Multi-Source Catalog</span></h1>
-<div class="stats">2429 Auto Parts | Sources: farosypilotos.es, tirshop.ro, eBay, AliExpress, Bross Auto Parts, VAG247, skoda-parts.com + more | Updated: 2026-03-21</div>
+<div class="stats" id="statsBar">2429 Listings | Sources: farosypilotos.es, tirshop.ro, eBay, AliExpress, Bross Auto Parts, VAG247, skoda-parts.com + more | Updated: 2026-03-21</div>
 <div class="filters">
 <label>Brand:</label>
 <select id="filterBrand"><option value="">All Brands</option></select>
@@ -2698,6 +2706,58 @@ function getMoroccoScore(p) {
 // Pre-compute scores
 products.forEach(p => { p._moroccoScore = getMoroccoScore(p); });
 
+// ============ PRODUCT GROUPING ============
+function getGroupKey(p) {
+  let side = (p.side||'').toLowerCase();
+  if (side === 'izquierdo') side = 'left';
+  if (side === 'derecho') side = 'right';
+  let m = (p.model||'').toLowerCase();
+  m = m.replace(/\biii\b/g,'mk3').replace(/\biv\b/g,'mk4').replace(/\bii\b/g,'mk2');
+  m = m.replace(/\bviii\b/g,'mk8').replace(/\bvii\b/g,'mk7').replace(/\bvi\b/g,'mk6');
+  m = m.replace(/\b(class|series?|genuine|oem|original|new|nuevo|left|right|izquierdo|derecho|loro|romix|bross|you\.s|alt|kit|ears|tab|mount|holder|claw|plastic|black|housing|repair|bracket|headlight|headlamp|faro|support|sedan|coupe|avant|allroad|quattro|convertible|facelift|pre-facelift|lci|cabriolet|touring|mcv|stepway|sportback|gti|gtd|amg|cupra|r-?line|variant|wagon|renault-dacia|hm|pp|led|matrix|drl|front|inner|upper|lower|rear|patte|fixation|mounting|fixing|ring|protection)\b/gi,'');
+  m = m.replace(/\b[ace]\d{3}l?\b/gi,'');
+  m = m.replace(/\b[sacx]\d{3}\b/gi,'');
+  m = m.replace(/\b\d{4}[\-\+]?\d{0,4}\b/g,'');
+  m = m.replace(/\.5/g,'');
+  m = m.replace(/[\/\(\),\.+~#&:\-]/g,' ').replace(/\s+/g,' ').trim();
+  let tokens = [...new Set(m.split(' ').filter(t=>t.length>0))];
+  let key = tokens.slice(0,2).join(' ');
+  let type = (p.type||'').toLowerCase();
+  return p.brand+'||'+key+'||'+side+'||'+type;
+}
+
+function parsePrice(priceStr) {
+  if (!priceStr) return Infinity;
+  const num = parseFloat(priceStr.replace(/[^0-9.,]/g,'').replace(',','.'));
+  return isNaN(num) ? Infinity : num;
+}
+
+const groupMap = {};
+products.forEach(p => {
+  const key = getGroupKey(p);
+  if (!groupMap[key]) groupMap[key] = [];
+  groupMap[key].push(p);
+});
+
+const groupedProducts = Object.values(groupMap).map(items => {
+  let rep = items.find(p => p.img && (p.img.startsWith('http://') || p.img.startsWith('https://'))) || items[0];
+  const sourceMap = {};
+  items.forEach(p => {
+    const src = p.source;
+    if (!sourceMap[src] || parsePrice(p.price) < parsePrice(sourceMap[src].price)) {
+      sourceMap[src] = { source: src, price: p.price, url: p.url };
+    }
+  });
+  const sources = Object.values(sourceMap).sort((a,b) => parsePrice(a.price) - parsePrice(b.price));
+  return {
+    brand: rep.brand, model: rep.model, side: rep.side, year: rep.year,
+    pieces: rep.pieces, code: rep.code, type: rep.type, img: rep.img,
+    source: sources[0].source, price: sources[0].price, url: sources[0].url,
+    _sources: sources, _sourceCount: sources.length,
+    _moroccoScore: rep._moroccoScore || 0
+  };
+});
+
 let moroccoMode = false;
 const PAGE_SIZE = 60;
 let filtered = [];
@@ -2705,11 +2765,9 @@ let shown = 0;
 
 function buildCard(p) {
   const sideClass = (p.side === 'Izquierdo' || p.side === 'Left') ? 'side-izq' : (p.side === 'Derecho' || p.side === 'Right') ? 'side-der' : (p.side === 'Set') ? 'side-set' : '';
-  const sourceClass = p.source === 'tirshop.ro' ? 'source-tirshop' : (p.source === 'eBay - odocar_shop' || p.source === 'eBay - mikryfrance' || p.source === 'eBay - gryp3d') ? 'source-ebay' : 'source-faros';
   const title = p.code ? `${p.type || 'Kit Reparacion Faro'} ${p.side} ${p.brand} ${p.model} [${p.code}]` : `${p.type || 'Kit Reparacion Faro'} ${p.side} ${p.brand} ${p.model}`;
   const piecesTag = p.pieces ? `<span class="tag">${p.pieces} piezas</span>` : '';
   const typeTag = p.type ? `<span class="tag type-tag">${p.type}</span>` : '';
-  const priceDisplay = p.price.includes('\u20ac') ? p.price : p.price + ' &euro;';
 
   // Morocco score bar
   let moroccoBar = '';
@@ -2731,7 +2789,29 @@ function buildCard(p) {
        <div class="no-img" style="display:none">${safeName}</div>`
     : `<div class="no-img">${safeName}</div>`;
 
+  // Multi-source badge
+  const sources = p._sources || [{ source: p.source, price: p.price, url: p.url }];
+  const badge = sources.length > 1 ? `<span class="source-count">${sources.length}</span>` : '';
+
+  // Build source list
+  let sourceListHtml = '';
+  if (sources.length > 1) {
+    const items = sources.map((s, i) => {
+      const pr = s.price || '—';
+      const prDisplay = pr.includes('\u20ac') || pr.startsWith('$') || pr.startsWith('\u00a3') || pr === '—' ? pr : pr + ' \u20ac';
+      const bestClass = i === 0 && pr !== '—' ? ' best' : '';
+      const srcLabel = s.source.replace('eBay - ','').replace('.com','');
+      return `<div class="source-item"><span class="s-price${bestClass}">${prDisplay}</span><a href="${s.url}" target="_blank">${srcLabel}</a></div>`;
+    }).join('');
+    sourceListHtml = `<div class="source-list">${items}</div>`;
+  } else {
+    const pr = p.price || '—';
+    const prDisplay = pr.includes('\u20ac') || pr.startsWith('$') || pr.startsWith('\u00a3') || pr === '—' ? pr : pr + ' \u20ac';
+    sourceListHtml = `<div class="price">${prDisplay}</div><a href="${p.url}" target="_blank">View on ${p.source}</a>`;
+  }
+
   return `<div class="card">
+    ${badge}
     ${imgHtml}
     <div class="card-body">
       <h3>${title}</h3>
@@ -2741,11 +2821,9 @@ function buildCard(p) {
         <span class="tag ${sideClass}">${p.side}</span>
         ${piecesTag}
         <span class="tag">${p.year}</span>
-        <span class="tag ${sourceClass}">${p.source}</span>
         ${typeTag}
       </div>
-      <div class="price">${priceDisplay}</div>
-      <a href="${p.url}" target="_blank">View on ${p.source}</a>
+      ${sourceListHtml}
     </div>
   </div>`;
 }
@@ -2776,16 +2854,24 @@ function render() {
   const search = document.getElementById('searchBox').value.toLowerCase();
   const moroccoSortVal = document.getElementById('moroccoSort').value;
 
-  filtered = products.filter(p => {
+  filtered = groupedProducts.filter(p => {
     if (brand && p.brand !== brand) return false;
-    if (source && p.source !== source) return false;
+    // Source filter: match if ANY source in the group matches
+    if (source) {
+      const sources = p._sources || [{ source: p.source }];
+      if (!sources.some(s => s.source === source)) return false;
+    }
     if (type && p.type !== type) return false;
     if (side === 'Left/Izquierdo' && p.side !== 'Left' && p.side !== 'Izquierdo') return false;
     if (side === 'Right/Derecho' && p.side !== 'Right' && p.side !== 'Derecho') return false;
     if (side === 'Both' && p.side !== 'Both') return false;
     if (side === 'Set' && p.side !== 'Set') return false;
-    if (search && !(p.brand+' '+p.model+' '+p.year+' '+(p.source||'')+' '+(p.code||'')+' '+(p.type||'')).toLowerCase().includes(search)) return false;
-    // Morocco minimum score filter
+    // Search across all sources in the group
+    if (search) {
+      const sources = p._sources || [{ source: p.source }];
+      const allSources = sources.map(s => s.source).join(' ');
+      if (!(p.brand+' '+p.model+' '+p.year+' '+allSources+' '+(p.code||'')+' '+(p.type||'')).toLowerCase().includes(search)) return false;
+    }
     if (moroccoMode) {
       if (moroccoSortVal === 'score50' && p._moroccoScore < 50) return false;
       if (moroccoSortVal === 'score70' && p._moroccoScore < 70) return false;
@@ -2834,6 +2920,9 @@ document.getElementById('filterSource').addEventListener('change', render);
 document.getElementById('typeFilter').addEventListener('change', render);
 document.getElementById('filterSide').addEventListener('change', render);
 document.getElementById('searchBox').addEventListener('input', render);
+// Update stats with grouped count
+const multiCount = groupedProducts.filter(g => g._sourceCount > 1).length;
+document.getElementById('statsBar').textContent = groupedProducts.length + ' Unique Products (' + products.length + ' listings from ' + multiCount + ' multi-source groups) | Updated: 2026-03-21';
 render();
 </script>
 </body>
