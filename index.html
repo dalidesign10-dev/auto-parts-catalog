@@ -39,6 +39,7 @@ h1 span { color: #fff; font-weight: 300; }
 .source-item .s-price { font-weight: 700; color: #e94560; font-size: 14px; white-space: nowrap; }
 .source-item .s-price.best { color: #137333; font-size: 16px; }
 .source-item a { margin-top: 0; font-size: 11px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cflag { font-size: 12px; margin-left: 3px; vertical-align: middle; }
 .source-count { display: inline-block; background: #e94560; color: #fff; border-radius: 50%; width: 22px; height: 22px; text-align: center; line-height: 22px; font-size: 11px; font-weight: 700; position: absolute; top: 8px; right: 8px; }
 .card { position: relative; }
 .hidden { display: none !important; }
@@ -2793,12 +2794,22 @@ function buildCard(p) {
   const sources = p._sources || [{ source: p.source, price: p.price, url: p.url }];
   const badge = sources.length > 1 ? `<span class="source-count">${sources.length}</span>` : '';
 
+  // Format price with currency flag
+  function fmtPrice(pr) {
+    if (!pr || pr === '—') return '—';
+    if (pr.startsWith('$')) return pr + ' <span class="cflag" title="USD">&#127482;&#127480;</span>';
+    if (pr.startsWith('\u00a3')) return pr + ' <span class="cflag" title="GBP">&#127468;&#127463;</span>';
+    if (pr.includes('\u20ac')) return pr;
+    // Plain number = EUR
+    return pr + ' \u20ac';
+  }
+
   // Build source list
   let sourceListHtml = '';
   if (sources.length > 1) {
     const items = sources.map((s, i) => {
       const pr = s.price || '—';
-      const prDisplay = pr.includes('\u20ac') || pr.startsWith('$') || pr.startsWith('\u00a3') || pr === '—' ? pr : pr + ' \u20ac';
+      const prDisplay = fmtPrice(pr);
       const bestClass = i === 0 && pr !== '—' ? ' best' : '';
       const srcLabel = s.source.replace('eBay - ','').replace('.com','');
       return `<div class="source-item"><span class="s-price${bestClass}">${prDisplay}</span><a href="${s.url}" target="_blank">${srcLabel}</a></div>`;
@@ -2806,7 +2817,7 @@ function buildCard(p) {
     sourceListHtml = `<div class="source-list">${items}</div>`;
   } else {
     const pr = p.price || '—';
-    const prDisplay = pr.includes('\u20ac') || pr.startsWith('$') || pr.startsWith('\u00a3') || pr === '—' ? pr : pr + ' \u20ac';
+    const prDisplay = fmtPrice(pr);
     sourceListHtml = `<div class="price">${prDisplay}</div><a href="${p.url}" target="_blank">View on ${p.source}</a>`;
   }
 
